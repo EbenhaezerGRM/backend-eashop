@@ -38,6 +38,9 @@ describe('PromoEvaluationService', () => {
     discountValue: 10,
     minimumPurchase: 0,
     maximumDiscount: null,
+    stock: 2,
+voucherType: 'DISCOUNT',
+shippingDiscountTiers: null,
     isStackable: true,
     startsAt: new Date('2026-01-01T00:00:00Z'),
     endsAt: new Date('2026-02-01T00:00:00Z'),
@@ -129,6 +132,44 @@ describe('PromoEvaluationService', () => {
     expect(result.promos[0].eligibleSubtotal)
       .toBe(500000);
   });
+
+  it('menghitung subsidi gratis ongkir dari tier subtotal cart', () => {
+  const freeShippingPromo = platformPromo({
+    voucherType: 'FREE_SHIPPING',
+    minimumPurchase: 0,
+    discountType: 'FIXED',
+    discountValue: 1,
+    shippingDiscountTiers: [
+      {
+        minimumSubtotal: 100_000,
+        maximumShippingDiscount: 10_000,
+      },
+      {
+        minimumSubtotal: 200_000,
+        maximumShippingDiscount: 20_000,
+      },
+      {
+        minimumSubtotal: 400_000,
+        maximumShippingDiscount: 40_000,
+      },
+    ],
+  });
+
+  const result = service.evaluate(
+    cart,
+    [freeShippingPromo],
+    evaluationDate,
+    19_000,
+  );
+
+  // Cart subtotal fixture = Rp750.000, cap tier = Rp40.000.
+  // Ongkir aktual Rp19.000, jadi subsidi maksimal Rp19.000.
+  expect(result.shippingDiscount).toBe(19_000);
+
+  // Voucher ongkir tidak mengurangi total diskon produk.
+  expect(result.totalDiscount).toBe(0);
+  expect(result.finalTotal).toBe(750_000);
+});
 
   it('menghitung satu promo platform', () => {
     const result = service.evaluate(

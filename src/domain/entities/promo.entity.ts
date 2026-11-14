@@ -157,6 +157,13 @@ export class Promo {
         }
 
         if (
+          !Number.isSafeInteger(promo.stock) ||
+          promo.stock < 0
+        ) {
+          throw new Error('Stok promo tidak valid');
+        }
+
+        if (
           !Number.isSafeInteger(tier.maximumShippingDiscount) ||
           tier.maximumShippingDiscount <= 0
         ) {

@@ -1,16 +1,18 @@
-
 import {
   BadRequestException,
   Body,
   ConflictException,
   Controller,
+  Delete,
   Get,
   NotFoundException,
   Param,
   ParseIntPipe,
-  Post,
   Patch,
-  Delete
+  Post,
+  Req,
+  UseGuards,
+  ValidationPipe,
 } from '@nestjs/common';
 
 import { GetCartUseCase } from
@@ -43,7 +45,18 @@ import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { DeleteCartItemUseCase } from
   '../application/use-cases/delete-cart-item.use-case';
 
+import { JwtAuthGuard } from
+  '../auth/jwt-auth.guard';
+
+interface AuthenticatedRequest {
+  user: {
+    sub: number;
+    email: string;
+  };
+}
+
 @Controller('carts')
+@UseGuards(JwtAuthGuard)
 export class CartsController {
   constructor(
     private readonly getCartUseCase: GetCartUseCase,
@@ -52,12 +65,34 @@ export class CartsController {
     private readonly deleteCartItemUseCase: DeleteCartItemUseCase,
   ) {}
 
+  // Mengambil cart milik user yang sedang login.
+  @Get('me')
+  @ResponseMessage('Keranjang berhasil diambil')
+  async getMyCart(@Req() req: AuthenticatedRequest) {
+    const cart = await this.getCartUseCase.executeByUserId(
+      req.user.sub,
+    );
+
+    if (!cart) {
+      throw new NotFoundException(
+        'Keranjang belum tersedia',
+      );
+    }
+
+    return this.toResponse(cart);
+  }
+
+  // Mengambil cart berdasarkan ID, dengan validasi kepemilikan.
   @Get('get-by-id/:id')
   @ResponseMessage('Keranjang berhasil diambil')
   async getCart(
     @Param('id', ParseIntPipe) id: number,
+    @Req() req: AuthenticatedRequest,
   ) {
-    const cart = await this.getCartUseCase.execute(id);
+    const cart = await this.getCartUseCase.executeForUser(
+      id,
+      req.user.sub,
+    );
 
     if (!cart) {
       throw new NotFoundException(
@@ -70,11 +105,22 @@ export class CartsController {
 
   @Post('add-item')
   @ResponseMessage('Produk berhasil ditambahkan ke keranjang')
-  async addItem(@Body() data: AddCartItemDto) {
+  async addItem(
+    @Body(
+      new ValidationPipe({
+        whitelist: true,
+        transform: true,
+        forbidNonWhitelisted: true,
+      }),
+    )
+    data: AddCartItemDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
     try {
-      const cart = await this.addCartItemUseCase.execute(
-        data,
-      );
+      const cart = await this.addCartItemUseCase.execute({
+        ...data,
+        userId: req.user.sub,
+      });
 
       return this.toResponse(cart);
     } catch (error) {
@@ -97,72 +143,79 @@ export class CartsController {
     }
   }
 
-  
-    @Patch('update-item')
-    @ResponseMessage('Jumlah produk berhasil diperbarui')
-    async updateItem(@Body() data: UpdateCartItemDto) {
+  @Patch('update-item')
+  @ResponseMessage('Jumlah produk berhasil diperbarui')
+  async updateItem(
+    @Body(
+      new ValidationPipe({
+        whitelist: true,
+        transform: true,
+        forbidNonWhitelisted: true,
+      }),
+    )
+    data: UpdateCartItemDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
     try {
-        const cart = await this.updateCartItemUseCase.execute(
-        data,
-        );
+      const cart = await this.updateCartItemUseCase.execute({
+        ...data,
+        userId: req.user.sub,
+      });
 
-        return this.toResponse(cart);
+      return this.toResponse(cart);
     } catch (error) {
-        if (
+      if (
         error instanceof CartNotFoundError ||
         error instanceof CartItemNotFoundError ||
         error instanceof ProductNotFoundError
-        ) {
+      ) {
         throw new NotFoundException(error.message);
-        }
+      }
 
-        if (error instanceof InsufficientStockError) {
+      if (error instanceof InsufficientStockError) {
         throw new ConflictException(error.message);
-        }
+      }
 
-        if (error instanceof InvalidCartQuantityError) {
+      if (error instanceof InvalidCartQuantityError) {
         throw new BadRequestException(error.message);
-        }
+      }
 
-        throw error;
+      throw error;
     }
-    }
-
-    
-@Delete('delete-item/:cartId/:productId')
-@ResponseMessage('Produk berhasil dihapus dari keranjang')
-async deleteItem(
-  @Param('cartId', ParseIntPipe) cartId: number,
-  @Param('productId', ParseIntPipe) productId: number,
-) {
-
-  if (cartId <= 0 || productId <= 0) {
-    throw new BadRequestException(
-      'ID keranjang dan produk harus lebih besar dari 0',
-    );
   }
 
-  try {
-    const cart = await this.deleteCartItemUseCase.execute({
-      cartId,
-      productId,
-    });
-
-    return this.toResponse(cart);
-
-  } catch (error) {
-
-    if (
-      error instanceof CartNotFoundError ||
-      error instanceof CartItemNotFoundError
-    ) {
-      throw new NotFoundException(error.message);
+  @Delete('delete-item/:cartId/:productId')
+  @ResponseMessage('Produk berhasil dihapus dari keranjang')
+  async deleteItem(
+    @Param('cartId', ParseIntPipe) cartId: number,
+    @Param('productId', ParseIntPipe) productId: number,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    if (cartId <= 0 || productId <= 0) {
+      throw new BadRequestException(
+        'ID keranjang dan produk harus lebih besar dari 0',
+      );
     }
 
-    throw error;
-  }
-}
+    try {
+      const cart = await this.deleteCartItemUseCase.execute({
+        cartId,
+        productId,
+        userId: req.user.sub,
+      });
 
+      return this.toResponse(cart);
+    } catch (error) {
+      if (
+        error instanceof CartNotFoundError ||
+        error instanceof CartItemNotFoundError
+      ) {
+        throw new NotFoundException(error.message);
+      }
+
+      throw error;
+    }
+  }
 
   private toResponse(cart: Cart) {
     return {

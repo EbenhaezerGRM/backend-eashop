@@ -31,6 +31,7 @@ export interface AppliedPromoResult {
 export interface PromoEvaluationResult {
   originalTotal: number;
   totalDiscount: number;
+  shippingDiscount: number;
   finalTotal: number;
   promos: AppliedPromoResult[];
 }
@@ -45,6 +46,7 @@ export class PromoEvaluationService {
     cart: Cart,
     promos: Promo[],
     evaluationDate: Date,
+    shippingCost = 0,
   ): PromoEvaluationResult {
 
     // 1. Pastikan kombinasi promo diperbolehkan.
@@ -71,6 +73,8 @@ export class PromoEvaluationService {
     let sellerDiscount = 0;
     let totalDiscount = 0;
 
+    let shippingDiscount = 0;
+
     // 3. Evaluasi setiap promo secara berurutan.
     for (const promo of orderedPromos) {
 
@@ -81,6 +85,48 @@ export class PromoEvaluationService {
         cart,
         evaluationDate,
       );
+
+if (promo.config.voucherType === 'FREE_SHIPPING') {
+  let discount = 0;
+
+  if (validation.isEligible) {
+    const cartSubtotal = cart.getTotal();
+
+    const matchingTier =
+      promo.config.shippingDiscountTiers
+        ?.filter(
+          (tier) =>
+            cartSubtotal >= tier.minimumSubtotal,
+        )
+        .sort(
+          (a, b) =>
+            b.minimumSubtotal - a.minimumSubtotal,
+        )[0];
+
+    const tierCap =
+      matchingTier?.maximumShippingDiscount ?? 0;
+
+    discount = Math.min(
+      Math.max(0, shippingCost),
+      tierCap,
+    );
+
+    shippingDiscount = discount;
+  }
+
+  results.push({
+    promoId: promo.config.id,
+    source: promo.config.source,
+    isEligible: validation.isEligible,
+    reason: validation.reason,
+    eligibleSubtotal: validation.eligibleSubtotal,
+    calculationSubtotal: validation.eligibleSubtotal,
+    discount,
+  });
+
+  // Subsidi ongkir tidak dihitung sebagai diskon produk.
+  continue;
+}
 
       // 4. Platform mendapatkan dasar perhitungan
       // setelah dikurangi diskon seller.
@@ -125,6 +171,7 @@ export class PromoEvaluationService {
     return {
       originalTotal,
       totalDiscount,
+      shippingDiscount,
       finalTotal: Math.max(
         0,
         originalTotal - totalDiscount,
@@ -133,9 +180,7 @@ export class PromoEvaluationService {
     };
   }
 
-  private validateCombination(
-  promos: Promo[],
-  ): void {
+  private validateCombination(promos: Promo[]): void {
   if (promos.length > 2) {
     throw new InvalidPromoCombinationError(
       'Maksimal dua promo dapat digunakan',
@@ -147,11 +192,10 @@ export class PromoEvaluationService {
   }
 
   const [first, second] = promos;
-
   const firstConfig = first.config;
   const secondConfig = second.config;
 
-  // Dua voucher free shipping tidak boleh digabung.
+  // Dua voucher gratis ongkir tidak boleh digabung.
   if (
     firstConfig.voucherType === 'FREE_SHIPPING' &&
     secondConfig.voucherType === 'FREE_SHIPPING'
@@ -161,28 +205,43 @@ export class PromoEvaluationService {
     );
   }
 
-  // Dua voucher platform hanya boleh digabung
-  // jika keduanya stackable.
-  if (
-    firstConfig.source === 'PLATFORM' &&
-    secondConfig.source === 'PLATFORM' &&
-    (!firstConfig.isStackable || !secondConfig.isStackable)
-  ) {
+  // Dua promo dari sumber yang sama tidak boleh digabung.
+    // Kombinasi FREE_SHIPPING + DISCOUNT diperbolehkan,
+  // meskipun keduanya berasal dari sumber yang sama.
+  const hasFreeShipping =
+    firstConfig.voucherType === 'FREE_SHIPPING' ||
+    secondConfig.voucherType === 'FREE_SHIPPING';
+
+  if (hasFreeShipping) {
+    // Sudah ditolak di atas jika keduanya FREE_SHIPPING.
+    // Jadi pasangan yang tersisa adalah FREE_SHIPPING + DISCOUNT.
+    return;
+  }
+
+  // Untuk dua promo DISCOUNT, sumber harus berbeda.
+  if (firstConfig.source === secondConfig.source) {
     throw new InvalidPromoCombinationError(
-      'Dua promo platform hanya dapat digabung jika keduanya stackable',
+      'Dua promo diskon dari sumber yang sama tidak dapat digabung',
     );
   }
 
-  // Dua voucher seller dari seller yang sama:
-  // jika salah satunya non-stackable, kombinasi ditolak.
+  // Seller + platform: keduanya harus stackable.
+  const sellerPromo =
+    firstConfig.source === 'SELLER'
+      ? firstConfig
+      : secondConfig;
+
+  const platformPromo =
+    firstConfig.source === 'PLATFORM'
+      ? firstConfig
+      : secondConfig;
+
   if (
-    firstConfig.source === 'SELLER' &&
-    secondConfig.source === 'SELLER' &&
-    firstConfig.sellerId === secondConfig.sellerId &&
-    (!firstConfig.isStackable || !secondConfig.isStackable)
+    !sellerPromo.isStackable ||
+    !platformPromo.isStackable
   ) {
     throw new InvalidPromoCombinationError(
-      'Promo seller yang sama tidak dapat digabung jika ada yang non-stackable',
+      'Promo seller dan platform hanya dapat digabung jika keduanya stackable',
     );
   }
 }

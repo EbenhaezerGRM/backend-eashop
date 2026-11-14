@@ -56,6 +56,7 @@ describe('UpdateCartItemUseCase', () => {
       addItem: jest.fn(),
       updateItem: jest.fn(),
       deleteItem: jest.fn(),
+      findByUserId: jest.fn(),
     };
 
     // Buat mock ProductRepository.
@@ -63,6 +64,7 @@ describe('UpdateCartItemUseCase', () => {
       findAll: jest.fn(),
       findById: jest.fn(),
       create: jest.fn(),
+      search: jest.fn(),
     };
 
     // Tentukan data awal yang dikembalikan mock.
@@ -89,6 +91,7 @@ describe('UpdateCartItemUseCase', () => {
 
     const result = await useCase.execute({
       cartId: 1,
+      userId: 1,
       productId: 2,
       quantity: 2,
     });
@@ -115,6 +118,7 @@ describe('UpdateCartItemUseCase', () => {
 
     const result = await useCase.execute({
       cartId: 1,
+      userId: 1,
       productId: 2,
       quantity: 10,
     });
@@ -132,6 +136,7 @@ describe('UpdateCartItemUseCase', () => {
     await expect(
       useCase.execute({
         cartId: 1,
+        userId: 1,
         productId: 2,
         quantity: 11,
       }),
@@ -152,6 +157,7 @@ describe('UpdateCartItemUseCase', () => {
     await expect(
       useCase.execute({
         cartId: 999,
+        userId: 1,
         productId: 2,
         quantity: 2,
       }),
@@ -168,6 +174,7 @@ describe('UpdateCartItemUseCase', () => {
     await expect(
       useCase.execute({
         cartId: 1,
+        userId: 1,
         productId: 999,
         quantity: 2,
       }),
@@ -188,6 +195,7 @@ describe('UpdateCartItemUseCase', () => {
     await expect(
       useCase.execute({
         cartId: 1,
+        userId: 1,
         productId: 2,
         quantity: 2,
       }),
@@ -206,6 +214,7 @@ describe('UpdateCartItemUseCase', () => {
       await expect(
         useCase.execute({
           cartId: 1,
+          userId: 1,
           productId: 2,
           quantity,
         }),

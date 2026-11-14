@@ -17,6 +17,9 @@ describe('Promo Entity', () => {
     discountValue: 10,
     minimumPurchase: 100000,
     maximumDiscount: 25000,
+    voucherType: 'DISCOUNT',
+    stock: 2,
+    shippingDiscountTiers: null,
 
     isStackable: true,
 

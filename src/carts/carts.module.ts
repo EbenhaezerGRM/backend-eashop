@@ -30,7 +30,11 @@ import { AddCartItemUseCase } from
 import { DeleteCartItemUseCase } from
   '../application/use-cases/delete-cart-item.use-case';
 
+import { AuthModule } from '../auth/auth.module';
+
+
 @Module({
+  imports: [AuthModule],
   controllers: [CartsController],
 
   providers: [
@@ -87,5 +91,7 @@ import { DeleteCartItemUseCase } from
     },
 
   ],
+
+  exports: [CartRepository],
 })
 export class CartsModule {}

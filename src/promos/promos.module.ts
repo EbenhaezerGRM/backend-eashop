@@ -23,7 +23,7 @@ import { GetPromosUseCase } from
 
   providers: [
     PrismaService,
-
+    
     {
       provide: PromoRepository,
       useClass: PrismaPromoRepository,
@@ -43,5 +43,6 @@ import { GetPromosUseCase } from
       inject: [PromoRepository],
     },
   ],
+  exports: [PromoRepository],
 })
 export class PromosModule {}

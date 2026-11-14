@@ -24,6 +24,9 @@ describe('DiscountCalculator', () => {
     discountValue: 10,
     minimumPurchase: 0,
     maximumDiscount: null,
+    voucherType: 'DISCOUNT',
+    stock: 2,
+    shippingDiscountTiers: null,
 
     isStackable: false,
 

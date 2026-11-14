@@ -60,6 +60,7 @@ describe('DeleteCartItemUseCase', () => {
       addItem: jest.fn(),
       updateItem: jest.fn(),
       deleteItem: jest.fn(),
+      findByUserId: jest.fn(),
     };
 
     mockCartRepository.findById.mockResolvedValue(
@@ -86,6 +87,7 @@ describe('DeleteCartItemUseCase', () => {
     // Jalankan use case.
     const result = await useCase.execute({
       cartId: 1,
+      userId: 1,
       productId: 1,
     });
 
@@ -112,6 +114,7 @@ describe('DeleteCartItemUseCase', () => {
     await expect(
       useCase.execute({
         cartId: 999,
+        userId: 1,
         productId: 1,
       }),
     ).rejects.toBeInstanceOf(
@@ -127,6 +130,7 @@ describe('DeleteCartItemUseCase', () => {
     await expect(
       useCase.execute({
         cartId: 1,
+        userId: 1,
         productId: 999,
       }),
     ).rejects.toBeInstanceOf(

@@ -11,4 +11,21 @@ export class GetCartUseCase {
   async execute(id: number): Promise<Cart | null> {
     return this.cartRepository.findById(id);
   }
+
+  async executeForUser(
+    id: number,
+    userId: number,
+  ): Promise<Cart | null> {
+    const cart = await this.cartRepository.findById(id);
+
+    if (!cart || cart.userId !== userId) {
+      return null;
+    }
+
+    return cart;
+  }
+
+  async executeByUserId(userId: number): Promise<Cart | null> {
+  return this.cartRepository.findByUserId(userId);
+}
 }

@@ -98,11 +98,14 @@ describe('ApplyPromoUseCase', () => {
       source: 'SELLER',
       sellerId: 1,
 
-      discountType: 'PERCENTAGE',
+      discountType: 'PERCENTAGE',      
       discountValue: 10,
 
       minimumPurchase: 100000,
       maximumDiscount: null,
+      voucherType: 'DISCOUNT',
+      stock: 2,
+      shippingDiscountTiers: null,
 
       isStackable: true,
 
@@ -129,6 +132,9 @@ describe('ApplyPromoUseCase', () => {
 
       minimumPurchase: 100000,
       maximumDiscount: null,
+      voucherType: 'DISCOUNT',
+      stock: 2,
+      shippingDiscountTiers: null,
 
       isStackable: true,
 

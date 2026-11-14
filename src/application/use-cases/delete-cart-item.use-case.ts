@@ -9,8 +9,9 @@ import {
 } from '../../domain/errors/cart.errors';
 
 export interface DeleteCartItemData {
-    cartId: number;
-    productId: number;
+  cartId: number;
+  productId: number;
+  userId: number;
 }
 
 export class DeleteCartItemUseCase {
@@ -19,17 +20,15 @@ export class DeleteCartItemUseCase {
   ) {}
 
   async execute(data: DeleteCartItemData): Promise<Cart> {
-
-    // 1. Cari keranjang
     const cart = await this.cartRepository.findById(
       data.cartId,
     );
 
-    if (!cart) {
+    // Cart tidak ditemukan atau bukan milik user yang login.
+    if (!cart || cart.userId !== data.userId) {
       throw new CartNotFoundError();
     }
 
-    // 2. Periksa apakah produk ada di keranjang
     const existingItem = cart.getItems().find(
       (item) => item.product.id === data.productId,
     );
@@ -38,7 +37,6 @@ export class DeleteCartItemUseCase {
       throw new CartItemNotFoundError();
     }
 
-    // 3. Hapus item melalui repository
     return this.cartRepository.deleteItem(
       data.cartId,
       data.productId,

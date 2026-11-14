@@ -29,7 +29,9 @@ describe('CreatePromoUseCase', () => {
 
     minimumPurchase: 100000,
     maximumDiscount: 25000,
-
+    stock: 2,
+  voucherType: 'DISCOUNT',
+  shippingDiscountTiers: null,
     isStackable: true,
 
     startsAt: new Date('2026-09-01T00:00:00Z'),
