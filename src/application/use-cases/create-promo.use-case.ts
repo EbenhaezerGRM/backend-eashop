@@ -1,4 +1,3 @@
-
 import {
   Promo,
   PromoConfig,
@@ -7,24 +6,44 @@ import {
 import { PromoRepository } from
   '../../domain/repositories/promo.repository';
 
+import { SellerRepository } from
+  '../../domain/repositories/seller.repository';
+
 import { InvalidPromoInputError } from
   '../../domain/errors/promo.errors';
 
-export type CreatePromoInput = Omit<PromoConfig, 'id'>;
+import { SellerAccountRequiredError } from
+  '../../domain/errors/seller.errors';
+
+export type CreatePromoInput = Omit<
+  PromoConfig,
+  'id' | 'source' | 'sellerId'
+>;
 
 export class CreatePromoUseCase {
   constructor(
     private readonly promoRepository: PromoRepository,
+    private readonly sellerRepository: SellerRepository,
   ) {}
 
-  async execute(data: CreatePromoInput): Promise<Promo> {
+  async execute(
+    data: CreatePromoInput,
+    userId: number,
+  ): Promise<Promo> {
+    const seller = await this.sellerRepository.findByUserId(userId);
+
+    if (!seller) {
+      throw new SellerAccountRequiredError();
+    }
+
     let promo: Promo;
 
-    // Validasi aturan bisnis sebelum menyimpan promo.
     try {
       promo = new Promo({
         id: 0,
         ...data,
+        source: 'SELLER',
+        sellerId: seller.id,
       });
     } catch (error) {
       if (error instanceof Error) {
@@ -34,7 +53,6 @@ export class CreatePromoUseCase {
       throw error;
     }
 
-    // Repository akan membuat ID asli di PostgreSQL.
     return this.promoRepository.create(promo);
   }
 }

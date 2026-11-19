@@ -121,6 +121,11 @@ async getProfile(userId: number) {
           isDefault: true,
         },
       },
+      seller: {
+        select: {
+          id: true,
+        },
+      },
     },
   });
 
@@ -128,6 +133,14 @@ async getProfile(userId: number) {
     throw new UnauthorizedException('User tidak ditemukan');
   }
 
-  return user;
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    phone: user.phone,
+    createdAt: user.createdAt,
+    addresses: user.addresses,
+    sellerId: user.seller?.id ?? 0,
+  };
 }
 }

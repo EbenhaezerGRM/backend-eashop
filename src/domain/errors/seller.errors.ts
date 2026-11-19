@@ -4,3 +4,10 @@ export class SellerAlreadyExistsError extends Error {
     this.name = 'SellerAlreadyExistsError';
   }
 }
+
+export class SellerAccountRequiredError extends Error {
+  constructor() {
+    super('Kamu harus memiliki akun Seller terlebih dahulu');
+    this.name = 'SellerAccountRequiredError';
+  }
+}

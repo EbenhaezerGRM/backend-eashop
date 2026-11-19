@@ -1,4 +1,3 @@
-
 import {
   IsString,
   IsNotEmpty,
@@ -11,17 +10,15 @@ import {
   Matches,
   Min,
   IsArray,
-  IsOptional,
   ValidateNested,
 } from 'class-validator';
 
 import { Type } from 'class-transformer';
 
 import type {
-  PromoSource,
   DiscountType,
   VoucherType,
-  ShippingDiscountTier
+  ShippingDiscountTier,
 } from '../../domain/entities/promo.entity';
 
 export class ShippingDiscountTierDto {
@@ -38,14 +35,6 @@ export class CreatePromoDto {
   @IsString()
   @IsNotEmpty()
   name: string;
-
-  @IsIn(['SELLER', 'PLATFORM'])
-  source: PromoSource;
-
-  @ValidateIf((_, value) => value !== null)
-  @IsInt()
-  @Min(1)
-  sellerId: number | null;
 
   @IsIn(['DISCOUNT', 'FREE_SHIPPING'])
   voucherType: VoucherType;

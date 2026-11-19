@@ -1,10 +1,16 @@
 
 import { Module } from '@nestjs/common';
 
+import { AuthModule } from '../auth/auth.module';
+import { SellersModule } from '../sellers/sellers.module';
+
 import { PromosController } from './promos.controller';
 
 import { PromoRepository } from
   '../domain/repositories/promo.repository';
+
+import { SellerRepository } from
+  '../domain/repositories/seller.repository';
 
 import { PrismaPromoRepository } from
   '../infrastructure/repositories/prisma-promo-repository';
@@ -19,11 +25,16 @@ import { GetPromosUseCase } from
   '../application/use-cases/get-promos.use-case';
 
 @Module({
+  imports: [
+    AuthModule,
+    SellersModule,
+  ],
+
   controllers: [PromosController],
 
   providers: [
     PrismaService,
-    
+
     {
       provide: PromoRepository,
       useClass: PrismaPromoRepository,
@@ -31,9 +42,18 @@ import { GetPromosUseCase } from
 
     {
       provide: CreatePromoUseCase,
-      useFactory: (repository: PromoRepository) =>
-        new CreatePromoUseCase(repository),
-      inject: [PromoRepository],
+      useFactory: (
+        promoRepository: PromoRepository,
+        sellerRepository: SellerRepository,
+      ) =>
+        new CreatePromoUseCase(
+          promoRepository,
+          sellerRepository,
+        ),
+      inject: [
+        PromoRepository,
+        SellerRepository,
+      ],
     },
 
     {
@@ -43,6 +63,7 @@ import { GetPromosUseCase } from
       inject: [PromoRepository],
     },
   ],
+
   exports: [PromoRepository],
 })
 export class PromosModule {}

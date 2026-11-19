@@ -30,7 +30,7 @@ import { CheckoutSummary } from
 describe('CheckoutUseCase', () => {
   let useCase: CheckoutUseCase;
 
-  const cart = {} as Cart;
+  const cart = new Cart(1, 1);
 
   const shipping: ShippingQuote = {
     serviceType: 'REGULAR',
@@ -106,7 +106,7 @@ describe('CheckoutUseCase', () => {
   it('membuat checkout tanpa promo', async () => {
     const result = await useCase.execute({
       cartId: 1,
-      userId: 1,
+      userId: 100,
       promoIds: [],
       shippingServiceType: 'REGULAR',
       evaluationDate,

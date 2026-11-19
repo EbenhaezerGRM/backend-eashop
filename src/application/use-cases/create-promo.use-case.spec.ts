@@ -1,3 +1,4 @@
+
 import {
   CreatePromoUseCase,
   CreatePromoInput,
@@ -5,35 +6,50 @@ import {
 
 import {
   Promo,
-  PromoConfig,
 } from '../../domain/entities/promo.entity';
+
+import { Seller } from
+  '../../domain/entities/seller.entity';
 
 import { PromoRepository } from
   '../../domain/repositories/promo.repository';
 
+import { SellerRepository } from
+  '../../domain/repositories/seller.repository';
+
 import { InvalidPromoInputError } from
   '../../domain/errors/promo.errors';
+
+import { SellerAccountRequiredError } from
+  '../../domain/errors/seller.errors';
 
 describe('CreatePromoUseCase', () => {
   let useCase: CreatePromoUseCase;
 
   let mockPromoRepository: jest.Mocked<PromoRepository>;
+  let mockSellerRepository: jest.Mocked<SellerRepository>;
+
+  const userId = 42;
+
+  const seller = new Seller(
+    1,
+    userId,
+    'Toko Test',
+    'Toko untuk pengujian',
+    new Date(),
+    new Date(),
+  );
 
   const baseInput: CreatePromoInput = {
-    name: 'Diskon Platform 10%',
-    source: 'PLATFORM',
-    sellerId: null,
-
+    name: 'Diskon Seller 10%',
+    voucherType: 'DISCOUNT',
     discountType: 'PERCENTAGE',
     discountValue: 10,
-
     minimumPurchase: 100000,
     maximumDiscount: 25000,
     stock: 2,
-  voucherType: 'DISCOUNT',
-  shippingDiscountTiers: null,
+    shippingDiscountTiers: null,
     isStackable: true,
-
     startsAt: new Date('2026-09-01T00:00:00Z'),
     endsAt: new Date('2026-12-31T23:59:59Z'),
   };
@@ -44,81 +60,64 @@ describe('CreatePromoUseCase', () => {
       findById: jest.fn(),
       findByIds: jest.fn(),
       create: jest.fn(),
+      findBySellerId:jest.fn(),
     };
+
+    mockSellerRepository = {
+      findByUserId: jest.fn(),
+      create: jest.fn(),
+    };
+
+    mockSellerRepository.findByUserId.mockResolvedValue(seller);
 
     useCase = new CreatePromoUseCase(
       mockPromoRepository,
+      mockSellerRepository,
     );
   });
 
-  it('berhasil membuat promo platform', async () => {
-    const savedPromo = new Promo({
-      id: 1,
-      ...baseInput,
-    });
-
-    mockPromoRepository.create.mockResolvedValue(
-      savedPromo,
-    );
-
-    const result = await useCase.execute({
-      ...baseInput,
-    });
-
-    expect(
-      mockPromoRepository.create,
-    ).toHaveBeenCalledTimes(1);
-
-    expect(result.config.id).toBe(1);
-    expect(result.config.source).toBe('PLATFORM');
-    expect(result.config.sellerId).toBeNull();
-    expect(result.config.discountValue).toBe(10);
-  });
-
-  it('berhasil membuat promo seller', async () => {
+  it('berhasil membuat promo Seller', async () => {
     const input: CreatePromoInput = {
       ...baseInput,
       name: 'Diskon Seller 15%',
-      source: 'SELLER',
-      sellerId: 1,
       discountValue: 15,
     };
 
     const savedPromo = new Promo({
       id: 2,
       ...input,
+      source: 'SELLER',
+      sellerId: 1,
     });
 
     mockPromoRepository.create.mockResolvedValue(
       savedPromo,
     );
 
-    const result = await useCase.execute(input);
+    const result = await useCase.execute(input, userId);
 
-    expect(
-      mockPromoRepository.create,
-    ).toHaveBeenCalledTimes(1);
+    expect(mockSellerRepository.findByUserId)
+      .toHaveBeenCalledWith(userId);
+
+    expect(mockPromoRepository.create)
+      .toHaveBeenCalledTimes(1);
 
     expect(result.config.source).toBe('SELLER');
     expect(result.config.sellerId).toBe(1);
+    expect(result.config.discountValue).toBe(15);
   });
 
-  it('menolak promo seller tanpa sellerId', async () => {
-    const input: CreatePromoInput = {
-      ...baseInput,
-      source: 'SELLER',
-      sellerId: null,
-    };
+  it('menolak membuat promo jika user belum memiliki akun Seller', async () => {
+    mockSellerRepository.findByUserId.mockResolvedValue(null);
 
     await expect(
-      useCase.execute(input),
+      useCase.execute(baseInput, userId),
     ).rejects.toBeInstanceOf(
-      InvalidPromoInputError,
+      SellerAccountRequiredError,
     );
 
-    expect(
-      mockPromoRepository.create,
-    ).not.toHaveBeenCalled();
+    expect(mockPromoRepository.create)
+      .not.toHaveBeenCalled();
   });
 
   it('menolak persentase diskon di atas 100%', async () => {
@@ -128,40 +127,46 @@ describe('CreatePromoUseCase', () => {
     };
 
     await expect(
-      useCase.execute(input),
+      useCase.execute(input, userId),
     ).rejects.toBeInstanceOf(
       InvalidPromoInputError,
     );
 
-    expect(
-      mockPromoRepository.create,
-    ).not.toHaveBeenCalled();
+    expect(mockPromoRepository.create)
+      .not.toHaveBeenCalled();
   });
 
-  it('meneruskan Promo valid ke repository', async () => {
-    const savedPromo = new Promo({
-      id: 10,
+  it('mengabaikan source dan sellerId palsu dari input', async () => {
+    // Simulasi client mencoba memalsukan identitas Seller.
+    const maliciousInput = {
       ...baseInput,
+      source: 'PLATFORM',
+      sellerId: 999,
+    } as CreatePromoInput;
+
+    const savedPromo = new Promo({
+      id: 3,
+      ...baseInput,
+      source: 'SELLER',
+      sellerId: 1,
     });
 
     mockPromoRepository.create.mockResolvedValue(
       savedPromo,
     );
 
-    await useCase.execute(baseInput);
+    const result = await useCase.execute(
+      maliciousInput,
+      userId,
+    );
 
-    expect(
-      mockPromoRepository.create,
-    ).toHaveBeenCalledTimes(1);
-
-    const promoArgument =
+    const createdPromo =
       mockPromoRepository.create.mock.calls[0][0];
 
-    expect(promoArgument).toBeInstanceOf(Promo);
+    expect(createdPromo.config.source).toBe('SELLER');
+    expect(createdPromo.config.sellerId).toBe(1);
 
-    expect(promoArgument.config.name)
-      .toBe('Diskon Platform 10%');
-
-    expect(promoArgument.config.id).toBe(0);
+    expect(result.config.source).toBe('SELLER');
+    expect(result.config.sellerId).toBe(1);
   });
 });

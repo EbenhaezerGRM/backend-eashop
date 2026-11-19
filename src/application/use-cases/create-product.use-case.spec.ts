@@ -5,36 +5,69 @@ import { CreateProductUseCase } from
 import { Product } from
   '../../domain/entities/product.entity';
 
+import { Seller } from
+  '../../domain/entities/seller.entity';
+
 import {
   ProductRepository,
-  CreateProductData,
 } from '../../domain/repositories/product.repository';
+
+import {
+  SellerRepository,
+} from '../../domain/repositories/seller.repository';
+
+import { SellerAccountRequiredError } from
+  '../../domain/errors/seller.errors';
+
+import { CreateProductInput } from
+  './create-product.use-case';
 
 describe('CreateProductUseCase', () => {
   let useCase: CreateProductUseCase;
-  let mockRepository: jest.Mocked<ProductRepository>;
+
+  let mockProductRepository: jest.Mocked<ProductRepository>;
+  let mockSellerRepository: jest.Mocked<SellerRepository>;
+
+  const userId = 42;
+
+  const seller = new Seller(
+    1,
+    userId,
+    'Toko Test',
+    'Toko untuk pengujian',
+    new Date(),
+    new Date(),
+  );
 
   beforeEach(() => {
-    mockRepository = {
+    mockProductRepository = {
       findAll: jest.fn(),
       findById: jest.fn(),
       create: jest.fn(),
       search: jest.fn(),
+      findBySellerId:jest.fn()
     };
 
+    mockSellerRepository = {
+      findByUserId: jest.fn(),
+      create: jest.fn(),
+    };
+
+    mockSellerRepository.findByUserId.mockResolvedValue(seller);
+
     useCase = new CreateProductUseCase(
-      mockRepository,
+      mockProductRepository,
+      mockSellerRepository,
     );
   });
 
-  it('meneruskan data produk dan sellerId ke repository', async () => {
-    const input: CreateProductData = {
+  it('berhasil membuat produk dengan sellerId dari akun yang login', async () => {
+    const input: CreateProductInput = {
       name: 'Laptop',
       description: 'Laptop untuk kebutuhan kerja',
       price: 8000000,
       category: 'Electronics',
       stock: 10,
-      sellerId: 1,
     };
 
     const expectedProduct = new Product(
@@ -47,46 +80,46 @@ describe('CreateProductUseCase', () => {
       1,
     );
 
-    mockRepository.create.mockResolvedValue(
+    mockProductRepository.create.mockResolvedValue(
       expectedProduct,
     );
 
-    await useCase.execute(input);
+    const result = await useCase.execute(input, userId);
 
-    expect(mockRepository.create)
+    expect(mockSellerRepository.findByUserId)
+      .toHaveBeenCalledWith(userId);
+
+    expect(mockProductRepository.create)
       .toHaveBeenCalledTimes(1);
 
-    expect(mockRepository.create)
-      .toHaveBeenCalledWith(input);
+    expect(mockProductRepository.create)
+      .toHaveBeenCalledWith({
+        ...input,
+        sellerId: 1,
+      });
+
+    expect(result).toEqual(expectedProduct);
+    expect(result.sellerId).toBe(1);
   });
 
-  it('mengembalikan produk dengan sellerId yang sesuai', async () => {
-    const input: CreateProductData = {
+  it('menolak membuat produk jika user belum memiliki akun Seller', async () => {
+    const input: CreateProductInput = {
       name: 'Keyboard',
       description: 'Keyboard mekanik',
       price: 450000,
       category: 'Electronics',
       stock: 30,
-      sellerId: 2,
     };
 
-    const expectedProduct = new Product(
-      11,
-      'Keyboard',
-      'Keyboard mekanik',
-      450000,
-      'Electronics',
-      30,
-      2,
+    mockSellerRepository.findByUserId.mockResolvedValue(null);
+
+    await expect(
+      useCase.execute(input, userId),
+    ).rejects.toBeInstanceOf(
+      SellerAccountRequiredError,
     );
 
-    mockRepository.create.mockResolvedValue(
-      expectedProduct,
-    );
-
-    const result = await useCase.execute(input);
-
-    expect(result).toEqual(expectedProduct);
-    expect(result.sellerId).toBe(2);
+    expect(mockProductRepository.create)
+      .not.toHaveBeenCalled();
   });
 });

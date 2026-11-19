@@ -1,7 +1,6 @@
 import { Promo } from '../entities/promo.entity';
 
 export abstract class PromoRepository {
-
   abstract findAll(): Promise<Promo[]>;
 
   abstract findById(
@@ -16,4 +15,18 @@ export abstract class PromoRepository {
     promo: Promo,
   ): Promise<Promo>;
 
+  abstract deleteByIdAndSellerId(
+    id: number,
+    sellerId: number,
+  ): Promise<boolean>;
+
+  findBySellerId(sellerId: number): Promise<Promo[]> {
+    return this.findAll().then((promos) =>
+      promos.filter(
+        (promo) =>
+          promo.config.source === 'SELLER' &&
+          promo.config.sellerId === sellerId,
+      ),
+    );
+  }
 }

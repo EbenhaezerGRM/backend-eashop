@@ -1,4 +1,3 @@
-
 import {
   IsString,
   IsNotEmpty,
@@ -27,8 +26,4 @@ export class CreateProductDto {
   @IsInt()
   @Min(0)
   stock: number;
-
-  @IsInt()
-  @Min(1)
-  sellerId: number;
 }
