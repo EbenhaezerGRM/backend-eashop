@@ -10,6 +10,8 @@ import {
 
 import { PrismaService } from '../database/prisma.service';
 
+import { ProductCannotBeDeletedError } from '../../domain/errors/product.errors';
+
 @Injectable()
 export class PrismaProductRepository
   extends ProductRepository {
@@ -58,42 +60,90 @@ export class PrismaProductRepository
     );
   }
 
-  async search(query: string): Promise<Product[]> {
-  const trimmedQuery = query.trim();
+  async findBySellerId(sellerId: number): Promise<Product[]> {
+    const products = await this.prisma.product.findMany({
+      where: {
+        sellerId,
+      },
+    });
 
-  if (!trimmedQuery) {
-    return [];
+    return products.map(
+      (product) =>
+        new Product(
+          product.id,
+          product.name,
+          product.description,
+          product.price,
+          product.category,
+          product.stock,
+          product.sellerId,
+        ),
+    );
   }
 
-  const id = Number(trimmedQuery);
+  async search(query: string): Promise<Product[]> {
+    const trimmedQuery = query.trim();
 
-  const products = Number.isSafeInteger(id) && id > 0
-    ? await this.prisma.product.findMany({
-        where: {
-          id,
-        },
-      })
-    : await this.prisma.product.findMany({
-        where: {
-          name: {
-            contains: trimmedQuery,
-            mode: 'insensitive',
+    if (!trimmedQuery) {
+      return [];
+    }
+
+    const id = Number(trimmedQuery);
+
+    const products = Number.isSafeInteger(id) && id > 0
+      ? await this.prisma.product.findMany({
+          where: {
+            id,
           },
-        },
-      });
+        })
+      : await this.prisma.product.findMany({
+          where: {
+            name: {
+              contains: trimmedQuery,
+              mode: 'insensitive',
+            },
+          },
+        });
 
-  return products.map(
-    (product) =>
-      new Product(
-        product.id,
-        product.name,
-        product.description,
-        product.price,
-        product.category,
-        product.stock,
-        product.sellerId,
-      ),
-  );
+    return products.map(
+      (product) =>
+        new Product(
+          product.id,
+          product.name,
+          product.description,
+          product.price,
+          product.category,
+          product.stock,
+          product.sellerId,
+        ),
+    );
+  }
+
+  async deleteByIdAndSellerId(
+  id: number,
+  sellerId: number,
+): Promise<boolean> {
+  try {
+    const result = await this.prisma.product.deleteMany({
+      where: {
+        id,
+        sellerId,
+      },
+    });
+
+    return result.count > 0;
+  } catch (error) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 'P2003'
+    ) {
+      throw new ProductCannotBeDeletedError();
+    }
+
+    throw error;
+  }
 }
 
   async create(

@@ -60,6 +60,7 @@ describe('AddCartItemUseCase', () => {
       search: jest.fn(),
       findById: jest.fn(),
       create: jest.fn(),
+      findBySellerId: jest.fn(),
     };
 
     // Default: user sudah memiliki cart.

@@ -12,6 +12,9 @@ import { PromoRepository } from
 import { PrismaService } from
   '../database/prisma.service';
 
+import { SellerPromoCannotBeDeletedError } from
+  '../../domain/errors/seller-promo.errors';
+
 // Struktur data promo yang diambil dari Prisma.
 type PromoRecord = {
   id: number;
@@ -46,6 +49,49 @@ export class PrismaPromoRepository extends PromoRepository {
 
     return records.map((record) => this.toDomain(record));
   }
+
+
+async findBySellerId(sellerId: number): Promise<Promo[]> {
+  const records = await this.prisma.promo.findMany({
+    where: {
+      sellerId,
+      source: 'SELLER',
+    },
+    orderBy: {
+      id: 'asc',
+    },
+  });
+
+  return records.map((record) => this.toDomain(record));
+}
+
+async deleteByIdAndSellerId(
+  id: number,
+  sellerId: number,
+): Promise<boolean> {
+  try {
+    const result = await this.prisma.promo.deleteMany({
+      where: {
+        id,
+        sellerId,
+        source: 'SELLER',
+      },
+    });
+
+    return result.count > 0;
+  } catch (error) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 'P2003'
+    ) {
+      throw new SellerPromoCannotBeDeletedError();
+    }
+
+    throw error;
+  }
+}
 
   async findById(id: number): Promise<Promo | null> {
     const record = await this.prisma.promo.findUnique({

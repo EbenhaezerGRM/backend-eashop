@@ -1,6 +1,9 @@
 
 import { Module } from '@nestjs/common';
 
+import { AuthModule } from '../auth/auth.module';
+import { SellersModule } from '../sellers/sellers.module';
+
 import { ProductsController } from './products.controller';
 
 import { GetProductsUseCase } from
@@ -12,6 +15,9 @@ import { CreateProductUseCase } from
 import { ProductRepository } from
   '../domain/repositories/product.repository';
 
+import { SellerRepository } from
+  '../domain/repositories/seller.repository';
+
 import { PrismaProductRepository } from
   '../infrastructure/repositories/prisma-product.repository';
 
@@ -22,6 +28,11 @@ import { SearchProductsUseCase } from
   '../application/use-cases/search-products.use-case';
 
 @Module({
+  imports: [
+    AuthModule,
+    SellersModule,
+  ],
+
   controllers: [ProductsController],
 
   providers: [
@@ -41,16 +52,25 @@ import { SearchProductsUseCase } from
 
     {
       provide: CreateProductUseCase,
-      useFactory: (repository: ProductRepository) =>
-        new CreateProductUseCase(repository),
-      inject: [ProductRepository],
+      useFactory: (
+        productRepository: ProductRepository,
+        sellerRepository: SellerRepository,
+      ) =>
+        new CreateProductUseCase(
+          productRepository,
+          sellerRepository,
+        ),
+      inject: [
+        ProductRepository,
+        SellerRepository,
+      ],
     },
-    
+
     {
-    provide: SearchProductsUseCase,
-    useFactory: (repository: ProductRepository) =>
-      new SearchProductsUseCase(repository),
-    inject: [ProductRepository],
+      provide: SearchProductsUseCase,
+      useFactory: (repository: ProductRepository) =>
+        new SearchProductsUseCase(repository),
+      inject: [ProductRepository],
     },
   ],
 })

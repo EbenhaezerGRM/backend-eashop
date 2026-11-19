@@ -1,10 +1,12 @@
-
 import {
   Controller,
   Get,
   Post,
   Body,
   Query,
+  Req,
+  UseGuards,
+  ForbiddenException,
 } from '@nestjs/common';
 
 import { GetProductsUseCase } from
@@ -21,6 +23,18 @@ import { ResponseMessage } from
 
 import { SearchProductsUseCase } from
   '../application/use-cases/search-products.use-case';
+
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+
+import { SellerAccountRequiredError } from
+  '../domain/errors/seller.errors';
+
+interface AuthenticatedRequest {
+  user: {
+    sub: number;
+    email: string;
+  };
+}
 
 @Controller('products')
 export class ProductsController {
@@ -43,8 +57,23 @@ export class ProductsController {
   }
 
   @Post('create')
+  @UseGuards(JwtAuthGuard)
   @ResponseMessage('Produk berhasil ditambahkan')
-  createProduct(@Body() data: CreateProductDto) {
-    return this.createProductUseCase.execute(data);
+  async createProduct(
+    @Body() data: CreateProductDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    try {
+      return await this.createProductUseCase.execute(
+        data,
+        req.user.sub,
+      );
+    } catch (error) {
+      if (error instanceof SellerAccountRequiredError) {
+        throw new ForbiddenException(error.message);
+      }
+
+      throw error;
+    }
   }
 }

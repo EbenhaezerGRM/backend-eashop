@@ -1,3 +1,4 @@
+
 import { Product } from '../entities/product.entity';
 
 export interface CreateProductData {
@@ -16,11 +17,20 @@ export abstract class ProductRepository {
     id: number,
   ): Promise<Product | null>;
 
+  abstract findBySellerId(
+    sellerId: number,
+  ): Promise<Product[]>;
+
   abstract create(
     data: CreateProductData,
   ): Promise<Product>;
 
   abstract search(
-  query: string,
+    query: string,
   ): Promise<Product[]>;
+
+  abstract deleteByIdAndSellerId(
+  id: number,
+  sellerId: number,
+): Promise<boolean>;
 }

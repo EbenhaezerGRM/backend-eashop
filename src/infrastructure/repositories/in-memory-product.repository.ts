@@ -1,4 +1,3 @@
-
 import { Product } from '../../domain/entities/product.entity';
 
 import {
@@ -51,35 +50,59 @@ export class InMemoryProductRepository
     ) ?? null;
   }
 
-  async search(query: string): Promise<Product[]> {
-  const trimmedQuery = query.trim();
-
-  if (!trimmedQuery) {
-    return [];
-  }
-
-  const id = Number(trimmedQuery);
-
-  if (Number.isSafeInteger(id) && id > 0) {
+  async findBySellerId(sellerId: number): Promise<Product[]> {
     return this.products.filter(
-      (product) => product.id === id,
+      (product) => product.sellerId === sellerId,
     );
   }
 
-  const normalizedQuery = trimmedQuery.toLowerCase();
+  async deleteByIdAndSellerId(
+    id: number,
+    sellerId: number,
+  ): Promise<boolean> {
+    const index = this.products.findIndex(
+      (product) =>
+        product.id === id &&
+        product.sellerId === sellerId,
+    );
 
-  return this.products.filter(
-    (product) =>
-      product.name
-        .toLowerCase()
-        .includes(normalizedQuery),
-  );
-}
+    if (index === -1) {
+      return false;
+    }
+
+    this.products.splice(index, 1);
+
+    return true;
+  }
+
+  async search(query: string): Promise<Product[]> {
+    const trimmedQuery = query.trim();
+
+    if (!trimmedQuery) {
+      return [];
+    }
+
+    const id = Number(trimmedQuery);
+
+    if (Number.isSafeInteger(id) && id > 0) {
+      return this.products.filter(
+        (product) => product.id === id,
+      );
+    }
+
+    const normalizedQuery = trimmedQuery.toLowerCase();
+
+    return this.products.filter(
+      (product) =>
+        product.name
+          .toLowerCase()
+          .includes(normalizedQuery),
+    );
+  }
 
   async create(
     data: CreateProductData,
   ): Promise<Product> {
-
     const nextId =
       Math.max(
         0,

@@ -87,7 +87,7 @@ describe('DeleteCartItemUseCase', () => {
     // Jalankan use case.
     const result = await useCase.execute({
       cartId: 1,
-      userId: 1,
+      userId: 100,
       productId: 1,
     });
 
@@ -114,7 +114,7 @@ describe('DeleteCartItemUseCase', () => {
     await expect(
       useCase.execute({
         cartId: 999,
-        userId: 1,
+        userId: 100,
         productId: 1,
       }),
     ).rejects.toBeInstanceOf(
@@ -130,7 +130,7 @@ describe('DeleteCartItemUseCase', () => {
     await expect(
       useCase.execute({
         cartId: 1,
-        userId: 1,
+        userId: 100,
         productId: 999,
       }),
     ).rejects.toBeInstanceOf(

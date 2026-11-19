@@ -65,6 +65,8 @@ describe('UpdateCartItemUseCase', () => {
       findById: jest.fn(),
       create: jest.fn(),
       search: jest.fn(),
+      findBySellerId: jest.fn(),
+      deleteByIdAndSellerId: jest.fn(),
     };
 
     // Tentukan data awal yang dikembalikan mock.

@@ -5,6 +5,9 @@ import {
   Controller,
   Get,
   Post,
+  Req,
+  UseGuards,
+  ForbiddenException,
 } from '@nestjs/common';
 
 import { CreatePromoUseCase } from
@@ -16,10 +19,22 @@ import { GetPromosUseCase } from
 import { InvalidPromoInputError } from
   '../domain/errors/promo.errors';
 
+import { SellerAccountRequiredError } from
+  '../domain/errors/seller.errors';
+
 import { ResponseMessage } from
   '../common/decorators/response-message.decorator';
 
 import { CreatePromoDto } from './dto/create-promo.dto';
+
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+
+interface AuthenticatedRequest {
+  user: {
+    sub: number;
+    email: string;
+  };
+}
 
 @Controller('promos')
 export class PromosController {
@@ -29,13 +44,15 @@ export class PromosController {
   ) {}
 
   @Post('create')
+  @UseGuards(JwtAuthGuard)
   @ResponseMessage('Promo berhasil dibuat')
-  async createPromo(@Body() data: CreatePromoDto) {
+  async createPromo(
+    @Body() data: CreatePromoDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
     try {
       const promo = await this.createPromoUseCase.execute({
         name: data.name,
-        source: data.source,
-        sellerId: data.sellerId,
         voucherType: data.voucherType,
         stock: data.stock,
         discountType: data.discountType,
@@ -46,12 +63,16 @@ export class PromosController {
         isStackable: data.isStackable,
         startsAt: new Date(data.startsAt),
         endsAt: new Date(data.endsAt),
-        });
+      }, req.user.sub);
 
       return promo.config;
     } catch (error) {
       if (error instanceof InvalidPromoInputError) {
         throw new BadRequestException(error.message);
+      }
+
+      if (error instanceof SellerAccountRequiredError) {
+        throw new ForbiddenException(error.message);
       }
 
       throw error;
@@ -65,4 +86,4 @@ export class PromosController {
 
     return promos.map((promo) => promo.config);
   }
-    }
+}
