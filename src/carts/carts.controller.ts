@@ -15,17 +15,13 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 
-import { GetCartUseCase } from
-  '../application/use-cases/get-cart.use-case';
+import { GetCartUseCase } from '../application/use-cases/get-cart.use-case';
 
-import { UpdateCartItemUseCase } from
-  '../application/use-cases/update-cart-item.use-case';
+import { UpdateCartItemUseCase } from '../application/use-cases/update-cart-item.use-case';
 
-import { UpdateCartItemDto } from
-  './dto/update-cart-item.dto';
+import { UpdateCartItemDto } from './dto/update-cart-item.dto';
 
-import { AddCartItemUseCase } from
-  '../application/use-cases/add-cart-item.use-case';
+import { AddCartItemUseCase } from '../application/use-cases/add-cart-item.use-case';
 
 import {
   CartNotFoundError,
@@ -37,16 +33,14 @@ import {
 
 import { Cart } from '../domain/entities/cart.entity';
 
-import { ResponseMessage } from
-  '../common/decorators/response-message.decorator';
+import { ResponseMessage } from '../common/decorators/response-message.decorator';
 
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 
-import { DeleteCartItemUseCase } from
-  '../application/use-cases/delete-cart-item.use-case';
+import { DeleteCartItemUseCase } from '../application/use-cases/delete-cart-item.use-case';
 
-import { JwtAuthGuard } from
-  '../auth/jwt-auth.guard';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Seller } from '../domain/entities/seller.entity';
 
 interface AuthenticatedRequest {
   user: {
@@ -69,14 +63,10 @@ export class CartsController {
   @Get('me')
   @ResponseMessage('Keranjang berhasil diambil')
   async getMyCart(@Req() req: AuthenticatedRequest) {
-    const cart = await this.getCartUseCase.executeByUserId(
-      req.user.sub,
-    );
+    const cart = await this.getCartUseCase.executeByUserId(req.user.sub);
 
     if (!cart) {
-      throw new NotFoundException(
-        'Keranjang belum tersedia',
-      );
+      throw new NotFoundException('Keranjang belum tersedia');
     }
 
     return this.toResponse(cart);
@@ -89,15 +79,10 @@ export class CartsController {
     @Param('id', ParseIntPipe) id: number,
     @Req() req: AuthenticatedRequest,
   ) {
-    const cart = await this.getCartUseCase.executeForUser(
-      id,
-      req.user.sub,
-    );
+    const cart = await this.getCartUseCase.executeForUser(id, req.user.sub);
 
     if (!cart) {
-      throw new NotFoundException(
-        'Keranjang tidak ditemukan',
-      );
+      throw new NotFoundException('Keranjang tidak ditemukan');
     }
 
     return this.toResponse(cart);
@@ -222,17 +207,33 @@ export class CartsController {
       cartId: cart.id,
       userId: cart.userId,
 
-      items: cart.getItems().map((item) => ({
-        productId: item.product.id,
-        name: item.product.name,
-        description: item.product.description,
-        price: item.product.price,
-        category: item.product.category,
-        quantity: item.quantity,
-        availableStock: item.product.stock,
-        remainingStock: item.getRemainingStock(),
-        subtotal: item.getSubtotal(),
-      })),
+      items: cart
+        .getItems()
+        .map((item) => ({
+          sellerId: item.product.sellerId,
+          productId: item.product.id,
+          name: item.product.name,
+          description: item.product.description,
+          price: item.product.price,
+          category: item.product.category,
+          quantity: item.quantity,
+          availableStock: item.product.stock,
+          remainingStock: item.getRemainingStock(),
+          subtotal: item.getSubtotal(),
+        }))
+        .sort((a, b) => {
+          // 1. Urutkan sellerId asc (null ditaruh di paling atas)
+          const sellerA = a.sellerId ?? -Infinity;
+          const sellerB = b.sellerId ?? -Infinity;
+          if (sellerA !== sellerB) return sellerA - sellerB;
+
+          // 2. Jika sellerId sama (termasuk sesama null), urutkan productId asc (null paling atas)
+          const productA = a.productId ?? -Infinity;
+          const productB = b.productId ?? -Infinity;
+          if (productA !== productB) return productA - productB;
+
+          return 0;
+        }),
 
       total: cart.getTotal(),
     };
