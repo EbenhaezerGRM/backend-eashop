@@ -72,6 +72,11 @@ export abstract class OrderRepository {
     id: number,
     userId: number,
     ): Promise<CancelledOrder>;
+
+    abstract hasUserUsedPromo(
+      userId: number,
+      promoId: number,
+    ): Promise<boolean>;
     }
 
 

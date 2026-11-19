@@ -1,4 +1,7 @@
-import { Promo } from '../entities/promo.entity';
+import {
+  Promo,
+  type PromoSource,
+} from '../entities/promo.entity';
 
 export abstract class PromoRepository {
   abstract findAll(): Promise<Promo[]>;
@@ -26,6 +29,14 @@ export abstract class PromoRepository {
         (promo) =>
           promo.config.source === 'SELLER' &&
           promo.config.sellerId === sellerId,
+      ),
+    );
+  }
+
+  findBySource(source: PromoSource): Promise<Promo[]> {
+    return this.findAll().then((promos) =>
+      promos.filter(
+        (promo) => promo.config.source === source,
       ),
     );
   }

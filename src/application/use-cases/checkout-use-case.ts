@@ -1,8 +1,12 @@
+
 import { CartRepository } from
   '../../domain/repositories/cart.repository';
 
 import { PromoRepository } from
   '../../domain/repositories/promo.repository';
+
+import { OrderRepository } from
+  '../../domain/repositories/order.repository';
 
 import { CartNotFoundError } from
   '../../domain/errors/cart.errors';
@@ -54,6 +58,7 @@ export class CheckoutUseCase {
   constructor(
     private readonly cartRepository: CartRepository,
     private readonly promoRepository: PromoRepository,
+    private readonly orderRepository: OrderRepository,
     private readonly shippingService: ShippingService,
     private readonly promoEvaluationService:
       PromoEvaluationService,
@@ -67,12 +72,7 @@ export class CheckoutUseCase {
   ): Promise<CheckoutPreparation> {
 
     // 1. Validasi pilihan promo.
-    if (data.promoIds.length > 2) {
-      throw new InvalidPromoSelectionError(
-        'Maksimal dua promo dapat digunakan',
-      );
-    }
-
+    // Tidak ada lagi batas maksimal dua promo.
     const hasInvalidId = data.promoIds.some(
       (id) =>
         !Number.isSafeInteger(id) ||
@@ -125,7 +125,7 @@ export class CheckoutUseCase {
       }
     }
 
-    // 5. Evaluasi promo.
+    // 5. Evaluasi kombinasi dan kelayakan promo.
     const promoResult =
       this.promoEvaluationService.evaluate(
         cart,
@@ -134,7 +134,43 @@ export class CheckoutUseCase {
         shipping.shippingCost,
       );
 
-    // 6. Hitung total.
+    // 6. Periksa riwayat penggunaan promo.
+    // FREE_SHIPPING dikecualikan.
+    for (const result of promoResult.promos) {
+      if (!result.isEligible) {
+        continue;
+      }
+
+      const selectedPromo = promos.find(
+        (promo) =>
+          promo.config.id === result.promoId,
+      );
+
+      if (!selectedPromo) {
+        throw new PromoNotFoundError();
+      }
+
+      if (
+        selectedPromo.config.voucherType ===
+        'FREE_SHIPPING'
+      ) {
+        continue;
+      }
+
+      const hasUsedPromo =
+        await this.orderRepository.hasUserUsedPromo(
+          data.userId,
+          selectedPromo.config.id,
+        );
+
+      if (hasUsedPromo) {
+        throw new InvalidPromoSelectionError(
+          'Kamu sudah pernah menggunakan promo ini',
+        );
+      }
+    }
+
+    // 7. Hitung total.
     const summary =
       this.checkoutCalculator.calculate(
         promoResult.originalTotal,
@@ -143,25 +179,28 @@ export class CheckoutUseCase {
         promoResult.shippingDiscount,
       );
 
-      const appliedPromos: CreateOrderPromoInput[] =
-  promoResult.promos
-    .filter((result) => result.isEligible)
-    .map((result) => {
-      const selectedPromo = promos.find(
-        (promo) => promo.config.id === result.promoId,
-      );
+    // 8. Siapkan promo yang eligible untuk Order.
+    const appliedPromos: CreateOrderPromoInput[] =
+      promoResult.promos
+        .filter((result) => result.isEligible)
+        .map((result) => {
+          const selectedPromo = promos.find(
+            (promo) =>
+              promo.config.id === result.promoId,
+          );
 
-      if (!selectedPromo) {
-        throw new PromoNotFoundError();
-      }
+          if (!selectedPromo) {
+            throw new PromoNotFoundError();
+          }
 
-      return {
-        promoId: result.promoId,
-        source: selectedPromo.config.source,
-        voucherType: selectedPromo.config.voucherType,
-        discountAmount: result.discount,
-      };
-    });
+          return {
+            promoId: result.promoId,
+            source: selectedPromo.config.source,
+            voucherType:
+              selectedPromo.config.voucherType,
+            discountAmount: result.discount,
+          };
+        });
 
     return {
       cart,

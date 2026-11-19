@@ -150,7 +150,7 @@ if (promo.config.voucherType === 'FREE_SHIPPING') {
       // 6. Simpan diskon seller agar dapat
       // digunakan saat menghitung promo platform.
       if (promo.config.source === 'SELLER') {
-        sellerDiscount = discount;
+        sellerDiscount += discount;
       }
 
       totalDiscount += discount;
@@ -181,68 +181,77 @@ if (promo.config.voucherType === 'FREE_SHIPPING') {
   }
 
   private validateCombination(promos: Promo[]): void {
-  if (promos.length > 2) {
-    throw new InvalidPromoCombinationError(
-      'Maksimal dua promo dapat digunakan',
-    );
-  }
+  // 1. Maksimal satu voucher gratis ongkir.
+  const freeShippingPromos = promos.filter(
+    (promo) =>
+      promo.config.voucherType === 'FREE_SHIPPING',
+  );
 
-  if (promos.length < 2) {
-    return;
-  }
-
-  const [first, second] = promos;
-  const firstConfig = first.config;
-  const secondConfig = second.config;
-
-  // Dua voucher gratis ongkir tidak boleh digabung.
-  if (
-    firstConfig.voucherType === 'FREE_SHIPPING' &&
-    secondConfig.voucherType === 'FREE_SHIPPING'
-  ) {
+  if (freeShippingPromos.length > 1) {
     throw new InvalidPromoCombinationError(
       'Dua voucher gratis ongkir tidak dapat digabung',
     );
   }
 
-  // Dua promo dari sumber yang sama tidak boleh digabung.
-    // Kombinasi FREE_SHIPPING + DISCOUNT diperbolehkan,
-  // meskipun keduanya berasal dari sumber yang sama.
-  const hasFreeShipping =
-    firstConfig.voucherType === 'FREE_SHIPPING' ||
-    secondConfig.voucherType === 'FREE_SHIPPING';
+  // 2. Ambil semua voucher diskon produk.
+  const discountPromos = promos.filter(
+    (promo) =>
+      promo.config.voucherType === 'DISCOUNT',
+  );
 
-  if (hasFreeShipping) {
-    // Sudah ditolak di atas jika keduanya FREE_SHIPPING.
-    // Jadi pasangan yang tersisa adalah FREE_SHIPPING + DISCOUNT.
-    return;
-  }
+  // 3. Maksimal satu voucher diskon platform.
+  const platformPromos = discountPromos.filter(
+    (promo) =>
+      promo.config.source === 'PLATFORM',
+  );
 
-  // Untuk dua promo DISCOUNT, sumber harus berbeda.
-  if (firstConfig.source === secondConfig.source) {
+  if (platformPromos.length > 1) {
     throw new InvalidPromoCombinationError(
-      'Dua promo diskon dari sumber yang sama tidak dapat digabung',
+      'Maksimal satu voucher diskon platform dapat digunakan',
     );
   }
 
-  // Seller + platform: keduanya harus stackable.
-  const sellerPromo =
-    firstConfig.source === 'SELLER'
-      ? firstConfig
-      : secondConfig;
+  // 4. Voucher seller dari seller yang sama
+  // tidak boleh digunakan bersamaan.
+  const sellerPromos = discountPromos.filter(
+    (promo) =>
+      promo.config.source === 'SELLER',
+  );
 
-  const platformPromo =
-    firstConfig.source === 'PLATFORM'
-      ? firstConfig
-      : secondConfig;
+  const usedSellerIds = new Set<number>();
 
+  for (const promo of sellerPromos) {
+    const sellerId = promo.config.sellerId;
+
+    if (sellerId == null) {
+      throw new InvalidPromoCombinationError(
+        'Voucher seller tidak memiliki sellerId yang valid',
+      );
+    }
+
+    if (usedSellerIds.has(sellerId)) {
+      throw new InvalidPromoCombinationError(
+        'Voucher dari seller yang sama tidak dapat digabung',
+      );
+    }
+
+    usedSellerIds.add(sellerId);
+  }
+
+  // 5. Jika menggunakan lebih dari satu voucher diskon,
+  // semua voucher diskon tersebut harus stackable.
   if (
-    !sellerPromo.isStackable ||
-    !platformPromo.isStackable
+    discountPromos.length > 1 &&
+    discountPromos.some(
+      (promo) => !promo.config.isStackable,
+    )
   ) {
     throw new InvalidPromoCombinationError(
-      'Promo seller dan platform hanya dapat digabung jika keduanya stackable',
+      'Voucher diskon yang dipilih tidak mengizinkan kombinasi',
     );
   }
+
+  // Voucher FREE_SHIPPING tidak perlu diperiksa
+  // isStackable karena boleh digabung dengan semua promo.
 }
 }

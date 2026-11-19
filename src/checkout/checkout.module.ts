@@ -1,3 +1,4 @@
+
 import { Module } from '@nestjs/common';
 
 import { CartsModule } from '../carts/carts.module';
@@ -48,6 +49,7 @@ import { PrismaService } from
   imports: [AuthModule, CartsModule, PromosModule],
 
   controllers: [CheckoutController],
+
   providers: [
     {
       provide: PromoEvaluationService,
@@ -69,34 +71,10 @@ import { PrismaService } from
     },
 
     {
-      provide: CheckoutUseCase,
-      useFactory: (
-        cartRepository: CartRepository,
-        promoRepository: PromoRepository,
-        shippingService: ShippingService,
-        promoEvaluationService: PromoEvaluationService,
-        checkoutCalculator: CheckoutCalculator,
-      ) =>
-        new CheckoutUseCase(
-          cartRepository,
-          promoRepository,
-          shippingService,
-          promoEvaluationService,
-          checkoutCalculator,
-        ),
-      inject: [
-        CartRepository,
-        PromoRepository,
-        ShippingService,
-        PromoEvaluationService,
-        CheckoutCalculator,
-      ],
+      provide: PrismaService,
+      useClass: PrismaService,
     },
 
-    // Prisma Service
-    PrismaService,
-
-    // Order Repository
     {
       provide: OrderRepository,
       useFactory: (prismaService: PrismaService) =>
@@ -104,7 +82,34 @@ import { PrismaService } from
       inject: [PrismaService],
     },
 
-    // Create Order Use Case
+    {
+      provide: CheckoutUseCase,
+      useFactory: (
+        cartRepository: CartRepository,
+        promoRepository: PromoRepository,
+        orderRepository: OrderRepository,
+        shippingService: ShippingService,
+        promoEvaluationService: PromoEvaluationService,
+        checkoutCalculator: CheckoutCalculator,
+      ) =>
+        new CheckoutUseCase(
+          cartRepository,
+          promoRepository,
+          orderRepository,
+          shippingService,
+          promoEvaluationService,
+          checkoutCalculator,
+        ),
+      inject: [
+        CartRepository,
+        PromoRepository,
+        OrderRepository,
+        ShippingService,
+        PromoEvaluationService,
+        CheckoutCalculator,
+      ],
+    },
+
     {
       provide: CreateOrderUseCase,
       useFactory: (

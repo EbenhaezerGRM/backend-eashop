@@ -11,14 +11,15 @@ import {
   Min,
   IsArray,
   ValidateNested,
+  IsOptional,
 } from 'class-validator';
 
 import { Type } from 'class-transformer';
 
 import type {
   DiscountType,
+  PromoSource,
   VoucherType,
-  ShippingDiscountTier,
 } from '../../domain/entities/promo.entity';
 
 export class ShippingDiscountTierDto {
@@ -35,6 +36,16 @@ export class CreatePromoDto {
   @IsString()
   @IsNotEmpty()
   name: string;
+
+  @IsIn(['SELLER', 'PLATFORM'])
+  source: PromoSource;
+
+  // Wajib jika source SELLER.
+  // Untuk PLATFORM boleh null atau tidak dikirim.
+  @ValidateIf((o) => o.source === 'SELLER')
+  @IsInt()
+  @Min(1)
+  sellerId?: number | null;
 
   @IsIn(['DISCOUNT', 'FREE_SHIPPING'])
   voucherType: VoucherType;
@@ -54,7 +65,7 @@ export class CreatePromoDto {
   @Min(0)
   minimumPurchase: number;
 
-  @ValidateIf((_, value) => value !== null)
+  @IsOptional()
   @IsInt()
   @Min(1)
   maximumDiscount: number | null;
@@ -70,9 +81,13 @@ export class CreatePromoDto {
   @Matches(/(?:Z|[+-]\d{2}:\d{2})$/)
   endsAt: string;
 
-  @ValidateIf((_, value) => value !== null)
+  // Wajib berupa array jika FREE_SHIPPING.
+  // Tidak wajib jika DISCOUNT.
+  @ValidateIf(
+    (o) => o.voucherType === 'FREE_SHIPPING',
+  )
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ShippingDiscountTierDto)
-  shippingDiscountTiers: ShippingDiscountTier[] | null;
+  shippingDiscountTiers?: ShippingDiscountTierDto[] | null;
 }

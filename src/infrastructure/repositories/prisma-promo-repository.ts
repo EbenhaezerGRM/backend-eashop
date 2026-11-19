@@ -4,6 +4,7 @@ import { Prisma } from '../../generated/prisma/client';
 import {
   Promo,
   type ShippingDiscountTier,
+  type PromoSource,
 } from '../../domain/entities/promo.entity';
 
 import { PromoRepository } from
@@ -56,6 +57,19 @@ async findBySellerId(sellerId: number): Promise<Promo[]> {
     where: {
       sellerId,
       source: 'SELLER',
+    },
+    orderBy: {
+      id: 'asc',
+    },
+  });
+
+  return records.map((record) => this.toDomain(record));
+}
+
+async findBySource(source: PromoSource): Promise<Promo[]> {
+  const records = await this.prisma.promo.findMany({
+    where: {
+      source,
     },
     orderBy: {
       id: 'asc',

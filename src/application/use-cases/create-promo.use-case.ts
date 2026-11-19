@@ -1,24 +1,14 @@
+import { Promo, type PromoConfig } from '../../domain/entities/promo.entity';
+import { PromoRepository } from '../../domain/repositories/promo.repository';
+import { SellerRepository } from '../../domain/repositories/seller.repository';
 import {
-  Promo,
-  PromoConfig,
-} from '../../domain/entities/promo.entity';
+  InvalidPromoInputError,
+} from '../../domain/errors/promo.errors';
+import {
+  SellerAccountRequiredError,
+} from '../../domain/errors/seller.errors';
 
-import { PromoRepository } from
-  '../../domain/repositories/promo.repository';
-
-import { SellerRepository } from
-  '../../domain/repositories/seller.repository';
-
-import { InvalidPromoInputError } from
-  '../../domain/errors/promo.errors';
-
-import { SellerAccountRequiredError } from
-  '../../domain/errors/seller.errors';
-
-export type CreatePromoInput = Omit<
-  PromoConfig,
-  'id' | 'source' | 'sellerId'
->;
+export type CreatePromoInput = Omit<PromoConfig, 'id'>;
 
 export class CreatePromoUseCase {
   constructor(
@@ -30,20 +20,31 @@ export class CreatePromoUseCase {
     data: CreatePromoInput,
     userId: number,
   ): Promise<Promo> {
-    const seller = await this.sellerRepository.findByUserId(userId);
+    let sellerId: number | null = null;
 
-    if (!seller) {
-      throw new SellerAccountRequiredError();
+    if (data.source === 'SELLER') {
+      const seller = await this.sellerRepository.findByUserId(userId);
+
+      if (!seller) {
+        throw new SellerAccountRequiredError();
+      }
+
+      if (data.sellerId !== seller.id) {
+        throw new InvalidPromoInputError(
+          'Seller hanya dapat membuat promo untuk tokonya sendiri',
+        );
+      }
+
+      sellerId = seller.id;
     }
 
     let promo: Promo;
 
     try {
       promo = new Promo({
-        id: 0,
         ...data,
-        source: 'SELLER',
-        sellerId: seller.id,
+        id: 0,
+        sellerId,
       });
     } catch (error) {
       if (error instanceof Error) {

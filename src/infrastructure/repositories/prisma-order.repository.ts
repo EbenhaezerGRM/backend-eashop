@@ -1,4 +1,3 @@
-
 import { Injectable } from '@nestjs/common';
 
 import { OrderRepository } from
@@ -14,6 +13,9 @@ import type {
 
 import { CartNotFoundError } from
   '../../domain/errors/cart.errors';
+
+import { InvalidPromoSelectionError } from
+  '../../domain/errors/promo.errors';
 
 import {
   OrderAddressNotFoundError,
@@ -140,9 +142,18 @@ export class PrismaOrderRepository extends OrderRepository {
       }
 
       // Kurangi stok promo secara atomik.
+      // Kurangi stok dan periksa penggunaan promo
+      // di dalam transaksi yang sama.
       const now = new Date();
 
-      for (const promo of data.promos) {
+      // Urutkan berdasarkan ID agar urutan penguncian
+      // baris promo konsisten dan mengurangi risiko deadlock.
+      const sortedPromos = [...data.promos].sort(
+        (a, b) => a.promoId - b.promoId,
+      );
+
+      for (const promo of sortedPromos) {
+        // 1. Kurangi stok promo secara atomik.
         const promoUpdate = await tx.promo.updateMany({
           where: {
             id: promo.promoId,
@@ -166,6 +177,36 @@ export class PrismaOrderRepository extends OrderRepository {
         if (promoUpdate.count !== 1) {
           throw new OrderPromoUnavailableError(
             promo.promoId,
+          );
+        }
+
+        // 2. FREE_SHIPPING boleh digunakan berulang kali.
+        if (promo.voucherType === 'FREE_SHIPPING') {
+          continue;
+        }
+
+        // 3. Periksa apakah user pernah menggunakan
+        // promo diskon yang sama pada order sebelumnya.
+        const existingOrder = await tx.order.findFirst({
+          where: {
+            userId: data.userId,
+            status: {
+              not: 'CANCELLED',
+            },
+            promos: {
+              some: {
+                promoId: promo.promoId,
+              },
+            },
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        if (existingOrder) {
+          throw new InvalidPromoSelectionError(
+            'Kamu sudah pernah menggunakan promo ini',
           );
         }
       }
@@ -447,4 +488,28 @@ export class PrismaOrderRepository extends OrderRepository {
       };
     });
   }
+
+  async hasUserUsedPromo(
+  userId: number,
+  promoId: number,
+): Promise<boolean> {
+  const existingOrder = await this.prisma.order.findFirst({
+    where: {
+      userId,
+      status: {
+        not: 'CANCELLED',
+      },
+      promos: {
+        some: {
+          promoId,
+        },
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  return existingOrder !== null;
+}
 }
