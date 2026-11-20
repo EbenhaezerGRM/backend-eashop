@@ -45,6 +45,9 @@ import { PrismaOrderRepository } from
 import { PrismaService } from
   '../infrastructure/database/prisma.service';
 
+import { ValidatePromosUseCase } from
+  '../application/use-cases/validate-promos.use-case';
+
 @Module({
   imports: [AuthModule, CartsModule, PromosModule],
 
@@ -125,6 +128,30 @@ import { PrismaService } from
         OrderRepository,
       ],
     },
+    {
+  provide: ValidatePromosUseCase,
+  useFactory: (
+    cartRepository: CartRepository,
+    promoRepository: PromoRepository,
+    orderRepository: OrderRepository,
+    shippingService: ShippingService,
+    promoEvaluationService: PromoEvaluationService,
+  ) =>
+    new ValidatePromosUseCase(
+      cartRepository,
+      promoRepository,
+      orderRepository,
+      shippingService,
+      promoEvaluationService,
+    ),
+  inject: [
+    CartRepository,
+    PromoRepository,
+    OrderRepository,
+    ShippingService,
+    PromoEvaluationService,
+  ],
+},
   ],
 
   exports: [CheckoutUseCase],
